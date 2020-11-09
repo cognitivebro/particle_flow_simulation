@@ -1,0 +1,297 @@
+##########################    
+
+#sources and units
+import math
+import numpy as np
+from math import exp
+import matplotlib.pyplot as plt
+
+# one experiment shows air pressure conditions during experiment of 0.2 to 0.8 atm
+# Ref = Uodf/v Uo and v are free sream velocity and kinematic visocity of air 
+
+#pi
+pi = math.pi
+#boltzmann constant J/K 
+Kb = 1.380649e-23
+#lambda mean free math of gas molecules, nm, this is still a base assumption
+λ = 68
+#absolute temperature of aerosol in celsius....
+T = 18
+#viscosity of air Pa S, why is this not negative e-5????  is this the kinematic viscosity of air ?
+μ = 1.81e5
+# fiber diameter in nm
+Df = 200
+# filter thickness in nm 
+h = 100000
+# Filter Packing - base assumption of volume ratio of fibers to filter element, in a filter, α might have a value of 0.001 to 0.2, with a typical value of 0.01, http://calliope.dem.uniud.it/CLASS/IMP-CHIM/FilterEfficiency.pdf"
+a = .03
+# interstitial gas velocity, m s^-1, the model does not yet incorporate this variable
+u = 4.5
+# m s^-1, face velocity
+Vf = 4.5
+# particle diameter in nm
+Dp = 70
+# particle density g cm^-3
+ρ = 2.2
+# for interception
+R = Dp/Df
+# J : dimensionless factor from R
+if R < 0.4:
+    J = ((29.6-(28*a**.62))*R**2-27.5*R**2.8)
+else:
+    J = 2
+    
+    
+##########################    
+# dimensionless 
+def Knf(λ,Df):
+    return 2*λ/Df
+
+Knfstar = Knf(λ,Df)
+Knfstar
+
+# dimensionless
+def Kn(λ,Dp):
+    return 2*λ/Dp
+
+Knstar = Kn(λ,Dp)
+Knstar
+
+# reynolds number g/cm*s
+def Rep (Dp,u,ρ,μ):
+    return (Dp*u*ρ)/μ
+
+Repstar = Rep (Dp,u,ρ,μ)
+Repstar
+
+# dimensionless
+def Cs(Knstar):
+    return (1+Knstar*(1.207+0.44*exp(-.78/Knstar)))
+
+Csstar = Cs(Knstar)
+Csstar
+
+# diffusion coefficient
+def Dc(Kb,T,Csstar,pi,μ,Dp):
+    return (Kb*T*Csstar)/(3*pi*μ*Dp) 
+
+Dcstar = Dc(Kb,T,Csstar,pi,μ,Dp)
+Dcstar
+
+# Peclet
+def Pe(u,Dp,Dc):
+    return u*(Dp/Dcstar)
+            
+Pestar = Pe(u,Dp,Dcstar)
+Pestar
+
+# Kuwabara, dimensionless        
+def Ku(λ,Df,a):
+    return 2*λ/Df-(np.log(a)/2)*2+a-(a**2)/4-3/4
+
+Kustar = Ku(λ,Df,a)
+Kustar
+
+# stokes if modified for shape the deonominator should include x, see abovecode
+def Stk(ρ,Dp,u,Csstar,μ,Df):
+    return (ρ*Dp**2*u*Csstar/(18*μ*Df))
+
+Stkstar = Stk(ρ,Dp,u,Csstar,μ,Df)
+Stkstar
+            
+# adhesion multiplier
+def ηA(Repstar,Stkstar):
+    return 190/((Repstar*Stkstar)**.68+190)
+
+ηAstar = ηA(Repstar,Stkstar)
+ηAstar
+                 
+# xxxxx
+def c1(Knfstar,a,Pestar,Kustar):
+    return 1+0.388*Knfstar*((1-a)*Pestar/Kustar)**(1/3)
+
+C1star = c1(Knfstar,a,Pestar,Kustar)
+C1star
+
+# is it times c1 or plus c1
+def c2(a,Kustar,Pestar,C1star):
+    return 1/(1+1.6*((1-a)/Kustar)**(1/3)*Pestar**(-2/3)*C1star)
+
+# including C2 in calculating P depends on Knf betwen .1 and 1 AND particle diameter .02 micron to .5 micron, AND packing of the filer 0.029 < a < 0.1
+C2star = c2(Knfstar,a,Pestar,Kustar)
+C2star
+
+
+# def Cd(k1,μ,Df,ρ,u,h,Dp):
+#    return (2*k1*μ**2*Df)/(ρ*u*h*np.log(k2)*Dp)
+# Cdstar = Cd(k1,μ,Df,ρ,u,h,Dp)
+# Cdstar            
+
+# shape factor 
+# K = 1 has to do with particle shape
+# void fraction
+# w = 1
+# ρm = ρ/w
+
+
+# bigX = K * kdel * (Cc(Dp/kdel)/(Cc*Dp)     
+
+# function of porosity
+# kdel = (ρm/ρ)**(1/3) where pm is the true material density and pp is the effecetive particle density
+
+
+
+# https://www.tandfonline.com/doi/pdf/10.1080/02786826.2011.616555        
+# cunningham 
+# def Cc(Knstar)
+#    return 1+Knstar*(1.257+0.4*math.exp**(-1.1Knstar)                  
+# Ccstar = 1+Knstar*(1.257+0.4*math.exp**(-1.1Knstar)                  
+# https://www.tandfonline.com/doi/pdf/10.1080/02786826.2011.616555
+
+
+##########################
+
+#C2star currently excluded from the model based on assumptions from literature
+
+
+##########################
+def P(h,a,pi,Df,ηAstar,Kustar,Pestar,C1star,R,Knfstar,Stkstar,J):
+    return exp(-((4*h*a)/(pi*(1-a)*Df))*(ηAstar*(1.61*(1-a)/(Kustar**(1/3))*Pestar**(-2/3)*C1star+(.6*((1-a)*R**2/Kustar)*(1+R)*(1+(1.996*Knfstar)/R))+(Stkstar*J/2*Kustar**2))))
+    
+##########################
+single_fiber = ηAstar*(1.61*(1-a)/(Kustar**(1/3))*Pestar**(-2/3)*C1star+(.6*((1-a)*R**2/Kustar)*(1+R)*(1+(1.996*Knfstar)/R))+(Stkstar*J/2*Kustar**2))
+
+##########################
+# particle penetration
+P(h,a,pi,Df,ηAstar,Kustar,Pestar,C1star,R,Knfstar,Stkstar,J)
+
+
+##########################
+# effeciency
+1-(P(h,a,pi,Df,ηAstar,Kustar,Pestar,C1star,R,Knfstar,Stkstar,J))
+
+
+
+##########################
+#fstar is the drag coeffecient as a function of filter packing.
+
+def f(a):
+    return 64*a**(3/2)*(1+56*a**3)
+
+fstar = f(a)
+fstar
+
+##########################
+# delta P as function of face velocity (Davies' model)
+# "At the face velocity lower than 0.5 m/s, the relative deviation between the simulated pressure drop and the experimental data is about 40%. For example, when the velocity is 0.05 m/s, the experimental value of pressure drop is 397 Pa, the simulated value is 559 Pa, and the calculation yield is 40.8%. The large deviation is probably due to the fibers orientations changing from in-plane to through-plane [48]. In addition, the assumption of uniform fiber diameter in the model will result in some deviation since the fiber diameter in the actual filter media has a range of distribution.
+# face velocity or interstitial velocity, what's the diff?!? 
+
+Vfrange = np.arange(0,5)
+
+def DeltaPVar1(Vf): 
+    return h*((fstar*μ*Vf)/(Df**2))
+
+deltaPlist = []
+for Vfrange in Vfrange:
+  deltaPlist.append(DeltaPVar1(Vfrange))
+    
+plt.plot(deltaPlist)
+
+
+##########################
+hrange = np.arange(0,10000)
+
+def DeltaPVar2(h): 
+    return h*((fstar*μ*Vf)/(Df**2))
+
+deltaPhlist = []
+for hrange in hrange:
+  deltaPhlist.append(DeltaPVar2(hrange))
+    
+plt.plot(deltaPhlist)
+
+
+
+##########################
+# Delta P model # 2
+# In this model, air density and velocity are functions of distance through the media. This characteristicismostappreciablewhenpressuredropisonthesame orderasairpressure(	P/P≈1).Byintegratingacrosstheﬁlter thickness, Robinson and Franklin arrived at	
+
+import math
+
+#shape and orientation constant 1, the model does yet incorporate this variable
+k1 = 0.0000000001
+#shape and orientation constant 2, the model does yet incorporate this variable
+k2 = .00000000001
+
+# ζ is a characteristic ﬁlter area, what are the units
+zeta = 2
+
+#  β is a characteristic length (of fiber?) nanometers 
+β = 2
+
+# P is.... i refers to properties at the upstream ﬁlter face
+Pii = 1
+
+#P,i
+
+
+def deltaP2 (Pii,λ,Dp,h,Vf,k1,μ,zeta,k2,β):
+    return Pii*((1+(2*λ/Dp)*(1.207+0.44*math.exp(-.78/(2*λ/Dp)))))-((Pii*((1+(2*λ/Dp)*(1.207+0.44*math.exp(-.78/(2*λ/Dp))))))**2-2*Pii*h*Vf*(k1*μ/zeta+(k2/β)*Pii*Vf))**(1/2)
+    
+    
+##########################
+deltaP2(Pii,λ,Dp,h,Vf,k1,μ,zeta,k2,β)
+
+
+##########################
+(Pii*((1+(2*λ/Dp)*(1.207+0.44*math.exp(-.78/(2*λ/Dp))))))**2
+
+
+##########################
+# Porosity - the filter's material properties need to be entered here
+
+m  # mass
+ρρ # density of polymeric
+V  # bulk volume
+Porosity
+
+Porosity = (V – (m /ρρ) 
+/ V) * 100% 
+
+
+
+##########################
+# effect of filter thickness variation on effeciency
+
+def PVar1(x):
+    return (1-(exp(-((4*x*a)/(pi*(1-a)*Df))*(ηAstar*(1.61*(1-a)/(Kustar**(1/3))*Pestar**(-2/3)*C1star*C2star+(.6*((1-a)*R**2/Kustar)*(1+R)*(1+(1.996*Knfstar)/R))+(Stkstar*J/2*Kustar**2))))))
+
+
+import matplotlib.pyplot as plt
+
+# nanometers
+x = np.arange(0,200000)
+
+xlist = []
+for x in x:
+  xlist.append(PVar1(x))
+    
+plt.plot(xlist)
+
+
+##########################
+def Pall(Dp):
+    return (1-(exp(-((4*h*a)/(pi*(1-a)*Df))*((190/((((Dp*u*ρ)/μ)*((ρ*Dp**2*u*((1+(2*λ/Dp)*(1.207+0.44*exp(-.78/(2*λ/Dp)))))/(18*μ*Df))))**.68+190))*(1.61*(1-a)/((2*λ/Df-(np.log(a)/2)*2+a-(a**2)/4-3/4)**(1/3))*(u*(Dp/((Kb*T*((1+(2*λ/Dp)*(1.207+0.44*exp(-.78/(2*λ/Dp))))))/(3*pi*μ*Dp))))**(-2/3)*(1+0.388*(2*λ/Df)*((1-a)*(u*(Dp/((Kb*T*((1+(2*λ/Dp)*(1.207+0.44*exp(-.78/(2*λ/Dp))))))/(3*pi*μ*Dp))))/(2*λ/Df-(np.log(a)/2)*2+a-(a**2)/4-3/4))**(1/3))+(.6*((1-a)*R**2/(2*λ/Df-(np.log(a)/2)*2+a-(a**2)/4-3/4))*(1+(Dp/Df))*(1+(1.996*(2*λ/Df))/(Dp/Df)))+(((ρ*Dp**2*u*((1+(2*λ/Dp)*(1.207+0.44*exp(-.78/(2*λ/Dp)))))/(18*μ*Df)))*J/2*(2*λ/Df-(np.log(a)/2)*2+a-(a**2)/4-3/4)**2))))))
+
+
+
+##########################
+# filter effeciency as a function of particle diameter
+
+Dpcalc = np.arange(1,1000)
+
+Dplist = []
+for x in Dpcalc:
+  Dplist.append(Pall(x))
+    
+plt.plot(Dplist)
